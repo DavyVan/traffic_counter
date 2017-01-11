@@ -8,7 +8,10 @@
 #include <cstdlib>
 #include <arpa/inet.h>
 #include <cstring>
+#include <unistd.h>
 using namespace std;
+
+#define ARGC 2
 
 unsigned long long int bytes_count = 0;
 unsigned long long int pkt_count = 0;
@@ -16,7 +19,9 @@ unsigned long long int pkt_count = 0;
 void display_help()
 {
     puts("Usage: traffic_counter {optons}");
-    puts("options: DEVICE IP");
+    puts("options: ");
+    puts("         -i name of interface");
+    puts("         -h IP address to sniff");
 }
 
 void SIGINT_handler(int sig)
@@ -43,25 +48,51 @@ void got_packet(u_char *args, const pcap_pkthdr *header, const u_char *packet)
 
 int main(int argc, char *argv[])
 {
-    if(argc < 3)
+    // Handle the Arguments
+    char *device;
+    char *sniff_ip;
+    int c;
+    int _argc = 0;
+    while ((c = getopt(argc, argv, "i:h:")) != -1)
+    {
+        switch (c)
+        {
+            case 'i':
+                device = optarg;
+                _argc++;
+                break;
+            case 'h':
+                sniff_ip = optarg;
+                _argc++;
+                break;
+            case '?':
+            default:
+                puts("Error: Missing/Wrong Arguments. Exit.");
+                display_help();
+                return -1;
+        }
+    }
+    if(_argc != ARGC)
     {
         puts("Error: Missing Arguments");
         display_help();
         return -1;
     }
 
+    printf("Device: %s\n", device);
+    printf("IP Address: %s\n", sniff_ip);
+
     // Register signal hendler
     signal(SIGINT, SIGINT_handler);
 
     // Some variables that pcap will use
     pcap_t *handle;
-    char *device = argv[1];
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_pkthdr pkthdr;
     const u_char *packet;
     bpf_program fp;
     char filter_exp[50] = "host ";
-    strcat(filter_exp, argv[2]);
+    strcat(filter_exp, sniff_ip);
     bpf_u_int32 mask;
     bpf_u_int32 net;
 
@@ -82,8 +113,6 @@ int main(int argc, char *argv[])
         mask = 0;
     }
     char t[INET_ADDRSTRLEN + 1];
-    inet_ntop(AF_INET, &net, t, INET_ADDRSTRLEN);
-    printf("%s\n", t);
     // compile filter expression
     if(pcap_compile(handle, &fp, filter_exp, 0, net) == -1)
     {
@@ -97,5 +126,6 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    printf("Sniffing...\n");
     pcap_loop(handle, -1, got_packet, NULL);
 }
