@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
     pcap_pkthdr pkthdr;
     const u_char *packet;
     bpf_program fp;
-    char filter_exp[50] = "host ";
+    char filter_exp[100] = "not port 8030 and not port 8031 and not port 9000 and host ";
     strcat(filter_exp, sniff_ip);
     bpf_u_int32 mask;
     bpf_u_int32 net;
